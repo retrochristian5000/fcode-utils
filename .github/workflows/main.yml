@@ -10,6 +10,9 @@ jobs:
   build-x86_64:
     runs-on: ubuntu-latest
     name: fcode-utils for x86_64
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout fcode-utils
         uses: actions/checkout@v7

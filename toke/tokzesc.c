@@ -737,6 +737,6 @@ void reset_tokz_esc( void )
 
 void pop_next_fcode( void)
 {
-   tic_param_t dummy_param;
+   tic_param_t dummy_param = { 0 };
    tokz_esc_next_fcode( dummy_param);
 }

@@ -22,58 +22,78 @@
 #  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA, 02110-1301 USA
 #
 
-PROGRAM = toke
+PROGRAM := toke
 
 DESTDIR ?= /usr/local
-CC      ?= gcc
-STRIP	?= strip
-INCLUDES = -I../shared
 
-# Normal flags
-CFLAGS  ?= -O2 -Wall -Werror #-Wextra
+# toke is a build-host utility.  Keep its compiler separate from any target
+# compiler inherited by a firmware or cross-toolchain build, while preserving
+# compatibility with callers that explicitly pass CC=...
+ifeq ($(origin HOSTCC), undefined)
+ifeq ($(origin CC), default)
+HOSTCC := cc
+else
+HOSTCC := $(CC)
+endif
+endif
+
+ifeq ($(origin HOSTSTRIP), undefined)
+ifeq ($(origin STRIP), undefined)
+HOSTSTRIP := strip
+else
+HOSTSTRIP := $(STRIP)
+endif
+endif
+
+CPPFLAGS ?=
+CPPFLAGS += -I../shared
+CFLAGS ?= -O2 -Wall -Werror -Wno-pointer-sign
 LDFLAGS ?=
+LDLIBS ?=
 
-# Coverage:
-#CFLAGS  := $(CFLAGS) -fprofile-arcs -ftest-coverage
-#LDFLAGS := $(LDFLAGS) -lgcov
+HOSTCPPFLAGS ?= $(CPPFLAGS)
+HOSTCFLAGS ?= $(CFLAGS)
+HOSTLDFLAGS ?= $(LDFLAGS)
+HOSTLDLIBS ?= $(LDLIBS)
 
-# Debugging:
-# CFLAGS  := $(CFLAGS) -g
+LOCAL_OBJS := clflags.o conditl.o devnode.o dictionary.o emit.o errhandler.o \
+	flowcontrol.o macros.o nextfcode.o parselocals.o scanner.o stack.o \
+	stream.o strsubvocab.o ticvocab.o toke.o tokzesc.o tracesyms.o \
+	usersymbols.o
+SHARED_OBJS := classcodes.o
+OBJS := $(LOCAL_OBJS) $(SHARED_OBJS)
+DEPS := $(OBJS:.o=.d)
 
-# for gcc 4. remove if you fixed the code.
-_GCC4_CFLAGS=$(shell echo 'int main(int argc, char **argv){return 0;}' > .test.c;   \
-		$(CC) -Wno-pointer-sign -c .test.c -o .test.o > /dev/null 2>&1 \
-		&& echo -Wno-pointer-sign; rm .test.c .test.o )
-CFLAGS  := $(CFLAGS) $(_GCC4_CFLAGS)
+.PHONY: all clean documentation install strip
+.DELETE_ON_ERROR:
 
-OBJS  = clflags.o conditl.o devnode.o dictionary.o emit.o errhandler.o     \
-        flowcontrol.o macros.o nextfcode.o parselocals.o scanner.o stack.o \
-	stream.o strsubvocab.o ticvocab.o toke.o tokzesc.o tracesyms.o     \
-	usersymbols.o ../shared/classcodes.o
-
-all: .dependencies $(PROGRAM)
+all: $(PROGRAM)
 
 $(PROGRAM): $(OBJS)
-	$(CC) -o $(PROGRAM) $(OBJS) $(LDFLAGS)
-	$(STRIP) $(PROGRAM)
+	$(HOSTCC) $(HOSTLDFLAGS) -o $@ $(OBJS) $(HOSTLDLIBS)
+
+%.o: %.c
+	$(HOSTCC) $(HOSTCPPFLAGS) $(HOSTCFLAGS) -MMD -MP \
+		-MT $@ -MF $(@:.o=.d) -c -o $@ $<
+
+classcodes.o: ../shared/classcodes.c
+	$(HOSTCC) $(HOSTCPPFLAGS) $(HOSTCFLAGS) -MMD -MP \
+		-MT $@ -MF $(@:.o=.d) -c -o $@ $<
+
+# Stripping is explicit so normal and debug builds retain their symbols, and a
+# strip failure cannot leave a linked program that Make later treats as valid.
+strip: $(PROGRAM)
+	$(HOSTSTRIP) $(PROGRAM)
 
 clean:
-	rm -f $(OBJS) *~
-	rm -f $(PROGRAM) .dependencies
+	rm -f $(OBJS) $(DEPS) *~
+	rm -f $(PROGRAM)
 
-.dependencies: *.c 
-	@$(CC) $(CFLAGS) $(INCLUDES) -MM *.c > .dependencies
-
-documentation:: *.c *.h toke.doxygen
+documentation: *.c *.h toke.doxygen
 	@doxygen toke.doxygen
 
-.PHONY: all clean
-
--include .dependencies
-
-.c.o:
-	$(CC) -c $(CFLAGS) $(INCLUDES) $< -o $@ 
-
-install:
+install: $(PROGRAM)
 	mkdir -p $(DESTDIR)/bin
 	cp $(PROGRAM) $(DESTDIR)/bin/$(PROGRAM)
+
+-include $(DEPS)

@@ -1,11 +1,17 @@
 name: Build fcode-utils-builder container
 
-# Run manually from Actions tab
-on: [workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - docker/Dockerfile.builder
+      - .github/workflows/build-fcode-utils-builder.yml
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-builder
+  IMAGE_NAME: retrochristian5000/fcode-utils-builder
 
 jobs:
   build-x86_64:
@@ -30,6 +36,9 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=master
+            type=sha
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7

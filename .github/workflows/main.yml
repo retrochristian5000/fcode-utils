@@ -26,14 +26,17 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=master
+            type=sha
 
       - name: Build fcode-utils
-        uses: docker://ghcr.io/openbios/fcode-utils-builder:master
+        uses: docker://ghcr.io/retrochristian5000/fcode-utils-builder:master
         with:
           args: "bash -c \"mkdir -p $(pwd)/build-$(uname -m) && make && make DESTDIR=$(pwd)/build-$(uname -m) install\""
 
       - name: Copy localvalues
-        uses: docker://ghcr.io/openbios/fcode-utils-builder:master
+        uses: docker://ghcr.io/retrochristian5000/fcode-utils-builder:master
         with:
           args: "bash -c \"cp -R localvalues build-$(uname -m)\""
 
@@ -41,8 +44,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: fcode-utils-x86_64
-          path: |
-            build-x86_64
+          path: build-x86_64
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7

@@ -41,7 +41,7 @@ jobs:
       - name: Verify incremental toke dependencies
         uses: docker://ghcr.io/retrochristian5000/fcode-utils-builder:master
         with:
-          args: "bash -c \"set -eu; make -C toke HOSTCC=gcc -q; touch shared/classcodes.c; make -C toke HOSTCC=gcc -n > /tmp/toke-dry-run; cat /tmp/toke-dry-run; grep -q 'classcodes.o' /tmp/toke-dry-run; if grep -q 'scanner.o' /tmp/toke-dry-run; then echo 'unrelated toke object rebuilt' >&2; exit 1; fi; make -C toke HOSTCC=gcc; make -C toke HOSTCC=gcc -q\""
+          args: "bash -c \"set -eu; make -C toke HOSTCC=gcc -q; touch shared/classcodes.c; make -C toke HOSTCC=gcc -n > /tmp/toke-dry-run; cat /tmp/toke-dry-run; grep -q -- '-MT classcodes.o' /tmp/toke-dry-run; if grep -q -- '-MT scanner.o' /tmp/toke-dry-run; then echo 'unrelated toke object rebuilt' >&2; exit 1; fi; make -C toke HOSTCC=gcc; make -C toke HOSTCC=gcc -q\""
 
       - name: Copy localvalues
         uses: docker://ghcr.io/retrochristian5000/fcode-utils-builder:master

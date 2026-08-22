@@ -44,6 +44,9 @@ distclean: clean
 	find . -name "*.gcda" -exec rm -f \{\} \;
 	find . -name "*.gcno" -exec rm -f \{\} \;
 
+check: all
+	sh testsuite/test-toke-output-buffer.sh
+
 tests: all
 	cp toke/toke testsuite
 	cp detok/detok testsuite
@@ -56,5 +59,5 @@ coverage:
 	@testsuite/GenCoverage . fcode-suite-$(VERSION) "FCode suite $(VERSION)"
 	@testsuite/GenCoverage toke toke-$(VERSION) "Toke $(VERSION)"
 
-.PHONY: all clean distclean toke detok romheaders tests
+.PHONY: all check clean distclean toke detok romheaders tests
 

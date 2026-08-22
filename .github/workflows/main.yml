@@ -38,6 +38,11 @@ jobs:
         with:
           args: "bash -c \"mkdir -p $(pwd)/build-$(uname -m) && make && make DESTDIR=$(pwd)/build-$(uname -m) install\""
 
+      - name: Test toke output-buffer relocation
+        uses: docker://ghcr.io/retrochristian5000/fcode-utils-builder:master
+        with:
+          args: "bash -c \"set -eu; make check\""
+
       - name: Verify incremental toke dependencies
         uses: docker://ghcr.io/retrochristian5000/fcode-utils-builder:master
         with:

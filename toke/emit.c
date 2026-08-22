@@ -262,11 +262,13 @@ void emit_fcodehdr(const char *starter_name)
 	emit_token( starter_name );
 
 	fcode_hdr_ob_off = opc;
-	fcode_hdr = (fcode_header_t *)(ostart+fcode_hdr_ob_off);
 
 	EMIT_STRUCT(fcode_header_t);
 
 	fcode_body_ob_off = opc;
+
+	/* EMIT_STRUCT may relocate ostart; resolve the header afterward. */
+	fcode_hdr = (fcode_header_t *)(ostart+fcode_hdr_ob_off);
 
 	/* Format = 8 means we comply with IEEE 1275-1994 */
 	fcode_hdr->format = 0x08;
@@ -392,9 +394,11 @@ static void emit_pci_rom_hdr(void)
 {
     rom_header_t *pci_hdr;
     pci_hdr_ob_off = opc;
-    pci_hdr = (rom_header_t *)(ostart + pci_hdr_ob_off);
 
     EMIT_STRUCT(rom_header_t);
+
+    /* EMIT_STRUCT may relocate ostart; resolve the header afterward. */
+    pci_hdr = (rom_header_t *)(ostart + pci_hdr_ob_off);
 	
 	/* PCI start signature */
     LITTLE_ENDIAN_WORD_STORE(pci_hdr->signature,0xaa55);
@@ -464,9 +468,11 @@ static void emit_pci_data_block(void)
     u16 vend_id  = dpop();
 
     pci_data_blk_ob_off = opc;
-    pci_data_blk = (pci_data_t *)(ostart + pci_data_blk_ob_off);
 
     EMIT_STRUCT(pci_data_t);
+
+    /* EMIT_STRUCT may relocate ostart; resolve the header afterward. */
+    pci_data_blk = (pci_data_t *)(ostart + pci_data_blk_ob_off);
 
     BIG_ENDIAN_LONG_STORE(pci_data_blk->signature , PCI_DATA_HDR );
 
@@ -623,4 +629,3 @@ void finish_headers(void)
 	if (fcode_hdr_ob_off != -1) finish_fcodehdr();
 	if (pci_hdr_ob_off != -1) finish_pcihdr();
 }
-

@@ -8,6 +8,29 @@ trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 cp -R "$repo_dir/toke" "$repo_dir/shared" "$tmp_dir/"
 
 cc=${HOSTCC:-cc}
+
+cat > "$tmp_dir/check-rom-layout.c" <<'EOF'
+#include <stddef.h>
+#include "pcihdr.h"
+
+_Static_assert(sizeof(rom_header_t) == 28,
+               "PCI ROM header ABI must remain 28 bytes");
+_Static_assert(offsetof(rom_header_t, reserved) == 2,
+               "processor-specific data must begin at ROM offset 02h");
+_Static_assert(offsetof(rom_header_t, fcode_ptr) == 2,
+               "Open Firmware FCode pointer must overlay ROM offset 02h");
+_Static_assert(offsetof(rom_header_t, data_ptr) == 24,
+               "PCIR pointer must remain at ROM offset 18h");
+
+int main(void)
+{
+    return 0;
+}
+EOF
+"$cc" -std=c11 -Wall -Werror -I"$tmp_dir/shared" \
+    "$tmp_dir/check-rom-layout.c" -o "$tmp_dir/check-rom-layout"
+"$tmp_dir/check-rom-layout"
+
 make -C "$tmp_dir/toke" clean >/dev/null
 make -C "$tmp_dir/toke" HOSTCC="$cc" HOSTCPPFLAGS="-I../shared" >/dev/null
 
@@ -112,6 +135,12 @@ pci_data_offset=$(read_le16 "$tmp_dir/pci.fc" 24)
 set -- $(od -An -tu1 -j"$pci_data_offset" -N4 "$tmp_dir/pci.fc")
 [ "$1" -eq 80 ] && [ "$2" -eq 67 ] && [ "$3" -eq 73 ] && [ "$4" -eq 82 ] || {
     echo "pci: invalid PCIR signature at offset $pci_data_offset" >&2
+    exit 1
+}
+
+code_type=$(od -An -tu1 -j$((pci_data_offset + 20)) -N1 "$tmp_dir/pci.fc" | tr -d '[:space:]')
+[ "$code_type" -eq 1 ] || {
+    echo "pci: Open Firmware PCIR code type must be 1, got $code_type" >&2
     exit 1
 }
 

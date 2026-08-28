@@ -144,9 +144,17 @@
 
 typedef struct {
     be_u16(signature);
-    /* PCI Bus Binding to Open Firmware, rev. 2.1, section 9. */
-    le_u16(fcode_ptr);
-    u8	reserved[0x14];
+    /*
+     * PCI firmware reserves bytes 02h-17h for processor-specific data.
+     * For Open Firmware code type 1, PCI Bus Binding rev. 2.1 section 9
+     * assigns bytes 02h-03h to the little-endian FCode program pointer.
+     * Overlay that binding-specific name without changing the generic ROM
+     * header layout used by other code types and by romheaders.
+     */
+    union {
+        u8 reserved[0x16];
+        le_u16(fcode_ptr);
+    };
     le_u16(data_ptr);
     le_u16(padd);
 } rom_header_t;

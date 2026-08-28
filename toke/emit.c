@@ -247,13 +247,32 @@ void emit_string(u8 *string, signed int cnt)
 
 void emit_fcodehdr(const char *starter_name)
 {
-	
+    int pci_fcode_offset = 0;
+
    /*  Check for error conditions   */
     if ( fcode_written )
     {
         tokenization_error( TKERROR ,
 	    "Cannot create FCode header after FCode output has begun.\n");
         if ( ! noerrors ) return ;
+    }
+
+    /*
+     * PCI Bus Binding to Open Firmware rev. 2.1, section 9 defines the
+     * expansion-ROM field at bytes 02h-03h as a little-endian offset to the
+     * FCode program.  Derive it from the actual output position rather than
+     * assuming a fixed relationship between the PCI and FCode headers.
+     */
+    if ( pci_hdr_ob_off != -1 )
+    {
+        pci_fcode_offset = opc - pci_hdr_ob_off;
+        if ( pci_fcode_offset > 0xffff )
+        {
+            tokenization_error( TKERROR,
+                "PCI FCode program offset 0x%x exceeds 16-bit ROM field.\n",
+                pci_fcode_offset );
+            if ( ! noerrors ) return ;
+        }
     }
 
 	fcode_header_t *fcode_hdr;
@@ -266,6 +285,12 @@ void emit_fcodehdr(const char *starter_name)
 	EMIT_STRUCT(fcode_header_t);
 
 	fcode_body_ob_off = opc;
+
+    if ( pci_hdr_ob_off != -1 )
+    {
+        rom_header_t *pci_hdr = (rom_header_t *)(ostart + pci_hdr_ob_off);
+        LITTLE_ENDIAN_WORD_STORE(pci_hdr->fcode_ptr, pci_fcode_offset);
+    }
 
 	/* EMIT_STRUCT may relocate ostart; resolve the header afterward. */
 	fcode_hdr = (fcode_header_t *)(ostart+fcode_hdr_ob_off);
@@ -380,8 +405,9 @@ void finish_fcodehdr(void)
  *                                           (Offset) in Output Buffer
  *         FCode Output buffer:
  *             Write the part of the PCI ROM Header Block we know:
- *                 Fill in the signature and the field reserved for
- *                 "processor architecture unique data".
+ *                 Fill in the signature and initialize the binding-defined
+ *                 FCode-program pointer.  The final FCode offset is filled
+ *                 when the FCode header is emitted.
  *             Fill in the "Pointer to PCI Data Structure" with the
  *                 size of the data structure, because the first PCI
  *                 Data Structure will follow immediately.
@@ -402,24 +428,9 @@ static void emit_pci_rom_hdr(void)
 	
 	/* PCI start signature */
     LITTLE_ENDIAN_WORD_STORE(pci_hdr->signature,0xaa55);
-	
-	/* Processor architecture */
-	/*  Note:
-	 *  The legacy code used to read:
-	 *
-	 *        pci_hdr->reserved[0] = 0x34;
-	 *
-	 *  I don't know what significance the literal  34  had, but
-	 *      by what might just be an odd coincidence, it is equal
-	 *      to the combined lengths of the  PCI-ROM-  and  PCI-Data-
-	 *      headers.
-	 *
-	 *  I suspect that it is more than merely an odd coincidence,
-	 *      and that the following would be preferable:
-	 */
 
-    LITTLE_ENDIAN_WORD_STORE( pci_hdr->reserved ,
-	(sizeof(rom_header_t) + sizeof(pci_data_t)) ) ;
+    /* Filled from the actual FCode output offset by emit_fcodehdr(). */
+    LITTLE_ENDIAN_WORD_STORE(pci_hdr->fcode_ptr, 0);
 
 	/* already handled padding */
 

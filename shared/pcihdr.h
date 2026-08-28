@@ -144,7 +144,9 @@
 
 typedef struct {
     be_u16(signature);
-    u8	reserved[0x16];
+    /* PCI Bus Binding to Open Firmware, rev. 2.1, section 9. */
+    le_u16(fcode_ptr);
+    u8	reserved[0x14];
     le_u16(data_ptr);
     le_u16(padd);
 } rom_header_t;

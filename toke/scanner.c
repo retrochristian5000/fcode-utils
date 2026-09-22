@@ -1577,7 +1577,7 @@ static void handle_user_message( char delim, bool print_it )
 	 *  Routine already takes care of that.
 	 *  Besides, buffer might be full...
 	 */
-	tokenization_error( MESSAGE, statbuf);
+	tokenization_error( MESSAGE, "%s", statbuf);
 	lineno = tmp_lineno;
     }
 

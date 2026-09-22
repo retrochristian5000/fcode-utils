@@ -268,9 +268,9 @@ static bool get_fcode_from_stack( u16 *the_num, bool setting_fc)
     if ( test_fcode != num_on_stk )
     {
         tokenization_error( WARNING,
-	    "Value on stack for %s command is 0x%0x.  "
+	    "Value on stack for %s command is 0x%0lx.  "
 		"Truncating to 0x%03x.\n",
-		     strupr(statbuf), num_on_stk, test_fcode);
+		     strupr(statbuf), (unsigned long)num_on_stk, test_fcode);
     }
     if ( ( test_fcode >= legal_minimum ) && ( test_fcode <= 0xfff ) )
     {

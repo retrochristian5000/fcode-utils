@@ -290,6 +290,7 @@ typedef struct cstag_group {
     unsigned int cs_abs_token_num;
     char *cs_word;
     bool cs_not_dup;
+    bool cs_offset16; /* width reserved at the branch site */
     unsigned long cs_datum;
     struct cstag_group *prev;
 } cstag_group_t;
@@ -389,6 +390,7 @@ static void push_cstag( unsigned long cstag, unsigned long datum)
     control_stack->cs_abs_token_num = abs_token_no;
     control_stack->cs_word = strdup(statbuf);
     control_stack->cs_not_dup = true;
+    control_stack->cs_offset16 = offs16;
     control_stack->cs_datum = datum;
     control_stack->prev = cs_temp;
 
@@ -1100,18 +1102,25 @@ static void resolve_forward( unsigned long cstag)
 
     if ( cs_match_result )
     {
-	int saved_opc;
+	unsigned int saved_opc = opc;
+	bool saved_offs16 = offs16;
+	unsigned int reserved_width = control_stack->cs_offset16 ? 2 : 1;
 	int fc_offset;
 
 	resvd_opc = control_stack->cs_datum;
-	fc_offset = opc - resvd_opc;
+	if (resvd_opc > opc || reserved_width > opc - resvd_opc) {
+	    tokenization_error(FATAL, "Invalid reserved FCode branch offset.\n");
+	    return;
+	}
+	fc_offset = (int)(opc - resvd_opc);
 
-	saved_opc = opc;
+	/* OFFSET16 can occur between reservation and resolution.  Never
+	 * overwrite the following token by widening an existing branch. */
+	offs16 = control_stack->cs_offset16;
 	opc = resvd_opc;
-
-
-	emit_fc_offset( fc_offset );
+	emit_fc_offset(fc_offset);
 	opc = saved_opc;
+	offs16 = saved_offs16;
     }
     pop_cstag();
 }

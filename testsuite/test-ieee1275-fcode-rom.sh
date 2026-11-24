@@ -154,4 +154,21 @@ grep -q 'fcode_ptr' "$tmp_dir/toke/emit.c" || {
     exit 1
 }
 
+# The first branch reserves an 8-bit offset; OFFSET16 switches later
+# branches to 16 bits.  Resolving the first branch must preserve 0xcc.
+cat > "$tmp_dir/mixed-offsets.fth" <<'EOF'
+fcode-version1
+if offset16 then
+if then
+end0
+EOF
+run_toke "$tmp_dir/mixed-offsets.fth" "$tmp_dir/mixed-offsets.fc"
+validate_fcode "$tmp_dir/mixed-offsets.fc" 0 mixed-offsets
+actual=$(od -An -tx1 -j8 -v "$tmp_dir/mixed-offsets.fc" | tr -d '[:space:]')
+# b?branch 03 offset16 b(>resolve), b?branch 0003 b(>resolve), end0.
+[ "$actual" = 1403ccb2140003b200 ] || {
+    echo "mixed-offsets: unexpected branch bytes: $actual" >&2
+    exit 1
+}
+
 printf 'IEEE-1275 FCode ROM tests: passed\n'

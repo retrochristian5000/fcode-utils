@@ -594,6 +594,12 @@ void finish_pcihdr(void)
 	/*   Calculate image size and padding */
 	imagesize = opc - pci_hdr_ob_off;     /*  Padding includes PCI hdr  */
 	imageblocks = (imagesize + 511) >> 9; /*  Size in 512-byte blocks   */
+        if ( imageblocks > 0xffff )
+        {
+            tokenization_error( FATAL,
+                "PCI ROM image exceeds the 16-bit block-count field.");
+            return;
+        }
 	padding = (imageblocks << 9) - imagesize;
 
 	/* fix up image size. */

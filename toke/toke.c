@@ -419,7 +419,9 @@ int main(int argc, char **argv)
 		
 		close_stream( NULL);
 		if ( close_output() )  retval = 1;
-	    }
+	    }else{
+                retval = 1;
+            }
 	}
 	
 	exit_scanner();

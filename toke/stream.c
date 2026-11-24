@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #ifdef __GLIBC__
 #define __USE_XOPEN_EXTENDED
 #endif
@@ -1094,9 +1095,11 @@ bool init_stream( const char *name)
     if ( !stat_succ )
     {
 	inp_fil_acc_err = true;
+    }else if ( finfo.st_size <= 0 || finfo.st_size > INT_MAX ) {
+        inp_fil_read_err = true;
     }else{
 	
-	infile = fopen( include_list_full_path, "r");
+	infile = fopen( include_list_full_path, "rb");
 	if ( infile == NULL )
 	{
 	    inp_fil_open_err = true;
@@ -1495,31 +1498,25 @@ void increase_output_buffer( void )
 {
     u8 *newout;
 
-    if ( olen == 0 )
+    unsigned int rea_len;
+
+    /* Header offsets are signed int values. Never grow beyond that range. */
+    if ( olen == 0 || olen >= INT_MAX )
     {
-	tokenization_error( FATAL,
-		"Output Buffer reallocation overflow.");
-    }else{
-	unsigned int rea_len;
-	olen = olen * 2;
-	rea_len = olen;
-	if ( rea_len == 0 )
-	{
-	    rea_len = (unsigned int)-1;
-	}
-	tokenization_error( INFO,
-	    "Output Buffer overflow.  "
-		"Relocating and increasing to %d bytes.\n", rea_len);
-
-	newout = realloc(ostart, rea_len);
-	if ( newout == NULL)
-	{
-	    tokenization_error( FATAL,
-		"Could not reallocate %d bytes for Output Buffer", rea_len);
-	}
-
-	ostart = newout;
+        tokenization_error( FATAL, "FCode output exceeds supported size.");
+        return;
     }
+    rea_len = olen > INT_MAX / 2 ? INT_MAX : olen * 2;
+    newout = realloc(ostart, rea_len);
+    if ( newout == NULL )
+    {
+        tokenization_error( FATAL,
+            "Could not allocate %u bytes for FCode output", rea_len);
+        return;
+    }
+
+    ostart = newout;
+    olen = rea_len;
 }
 
 
@@ -1564,26 +1561,24 @@ bool close_output(void)
 	}else{
 	FILE *outfile;
 
-	    outfile=fopen( oname,"w");
-	    if (!outfile)
-	    {
-		/*  Don't do this as a  tokenization_error( TKERROR
-		 *      because those are all counted, among other reasons...
-		 */ 
-		printf( "Could not open file %s for output.\n", oname);
-	    }else{
-	
-		if ( fwrite(ostart, opc, 1, outfile) != 1 )
-		{
-		    tokenization_error( FATAL, "While writing output.");
-	}
-	
-	fclose(outfile);
+        outfile = fopen(oname, "wb");
+        if ( !outfile )
+        {
+            fprintf(stderr, "Could not open file %s for output.\n", oname);
+        }else{
+            bool write_ok = fwrite(ostart, 1, opc, outfile) == opc;
+            bool close_ok = fclose(outfile) == 0;
 
-		printf("toke: wrote %d bytes to bytecode file '%s'\n",
-		    opc, oname);
-		retval = false;  /*  "No problem"  */
-	    }
+            if ( !write_ok || !close_ok )
+            {
+                fprintf(stderr, "Could not complete FCode output file %s.\n",
+                    oname);
+            }else{
+                printf("toke: wrote %u bytes to bytecode file '%s'\n",
+                    opc, oname);
+                retval = false;
+            }
+        }
 	}
     }
 	
